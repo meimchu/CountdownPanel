@@ -269,7 +269,7 @@ class TimecardWidget(QtWidgets.QGroupBox):
         self. parent = parent
         self.now = kwargs.get('now')
         self.remind_time = kwargs.get('remind_time', None)
-        self.notes = kwargs.get('notes', 'No notes')
+        self.notes = kwargs.get('notes', None)
         self.submit_type = kwargs.get('submit_type', None)
         self.reminder_blinks = kwargs.get('reminder_blinks', None)
         self.hours = kwargs.get('hours', None)
@@ -280,7 +280,6 @@ class TimecardWidget(QtWidgets.QGroupBox):
         self.remind_time_text = str(self.remind_time.strftime("%b %d %Y %H:%M:%S"))
         self.countdown = int((self.remind_time - self.now).total_seconds())
         self.countdown_text = str(self.countdown)
-        self.notes = str(self.notes)
 
         if self.submit_type == AddItemDialogBase.REMIND_IN:
             self.now_text += ' to be reminded in'
@@ -300,22 +299,37 @@ class TimecardWidget(QtWidgets.QGroupBox):
         self.buttonWidget = QtWidgets.QWidget()
         self.buttonLayout.setAlignment(QtCore.Qt.AlignRight)
 
-        self.deleteButton = QtWidgets.QLabel('X')
-        self.deleteButton.setStyleSheet("QLabel {color: black; font: 10pt}")
-        self.deleteButton.mousePressEvent = self.deleteAction
+        # self.deleteButton = QtWidgets.QLabel('X')
+        # self.deleteButton.setStyleSheet("QLabel {color: black}")
+        # self.deleteButton.mousePressEvent = self.deleteAction
+        self.deleteButton = QtWidgets.QPushButton('X')
+        self.deleteButton.setFixedSize(25, 25)
+        self.deleteButton.clicked.connect(self.deleteAction)
         self.buttonLayout.addWidget(self.deleteButton)
 
         self.buttonWidget.setLayout(self.buttonLayout)
         self.layout().addWidget(self.buttonWidget)
 
-        self.remindInField = QtWidgets.QLabel(self.remind_time_text)
-        self.layout().addWidget(self.remindInField)
+        self.remindWidget = QtWidgets.QGroupBox()
+        self.remindLayout = QtWidgets.QVBoxLayout()
+        self.remindWidget.setLayout(self.remindLayout)
+        self.remindField = QtWidgets.QLabel(self.remind_time_text)
+        self.remindLayout.addWidget(self.remindField)
+        self.remindWidget.setTitle('Time To Remind')
+        self.layout().addWidget(self.remindWidget)
 
         self.countdownField = QtWidgets.QLabel(self.countdown_text)
-        self.layout().addWidget(self.countdownField)
+        # self.layout().addWidget(self.countdownField)
 
+        self.notesWidget = QtWidgets.QGroupBox()
+        self.notesLayout = QtWidgets.QVBoxLayout()
+        self.notesWidget.setLayout(self.notesLayout)
+        if self.notes is None:
+            self.notes = 'No notes submitted'
         self.notesField = QtWidgets.QLabel(self.notes)
-        self.layout().addWidget(self.notesField)
+        self.notesLayout.addWidget(self.notesField)
+        self.notesWidget.setTitle('Notes')
+        self.layout().addWidget(self.notesWidget)
 
     def startCountdownThread(self):
         timeValue = int(self.countdownField.text())
@@ -369,7 +383,7 @@ class TimecardWidget(QtWidgets.QGroupBox):
         ss += '#time_base::title {subcontrol-position: top left; padding:2 13px;}'
         return ss
     
-    def deleteAction(self, event):
+    def deleteAction(self):
         self.stopCountdownThread(True)
     
     @classmethod

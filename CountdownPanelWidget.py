@@ -10,10 +10,12 @@ from PySide2 import QtCore, QtWidgets, QtGui
 
 
 class EditFieldBase(QtWidgets.QWidget):
+    list = set()
+    (LINEEDIT, TEXTEDIT) = range(2)
+
     def __init__(self, parent, efbDictList):
         QtWidgets.QWidget.__init__(self, parent)
-
-        self.lineEditList = set()
+        self.type = None
         
         self.parent = parent
         self.efbDictList = efbDictList
@@ -26,37 +28,46 @@ class EditFieldBase(QtWidgets.QWidget):
             self.object_name = str(efb['object_name'])
             self.default_value = efb['default_value']
             self.validator = efb['validator']
-            self.description = efb['description']
-            self.width = efb['width']
-            self.height = efb['height']
+            self.tooltip = efb['tooltip']
+            self.type = efb['type']
 
             # Simple label
             self.label_field = QtWidgets.QLabel(self.label_name)
             self.layout().addWidget(self.label_field)
 
             # Simple line edit field
-            self.text_field = QtWidgets.QLineEdit()
+            if self.type == self.LINEEDIT:
+                self.text_field = QtWidgets.QLineEdit()
+            elif self.type == self.TEXTEDIT:
+                self.text_field = QtWidgets.QTextEdit()
             self.text_field.setObjectName(self.object_name)
             self.text_field.setAlignment(QtCore.Qt.AlignTop)
             if self.default_value is not None:
-                self.text_field.setText(str(self.default_value))
-            if self.width is not None:
-                self.text_field.setMinimumWidth(int(self.width))
-            if self.height is not None:
-                self.text_field.setMinimumHeight(int(self.height))
-            if self.description is not None:
-                self.text_field.setToolTip(str(self.description))
+                if self.type == self.LINEEDIT:
+                    self.text_field.setText(str(self.default_value))
+                elif self.type == self.TEXTEDIT:
+                    self.text_field.setPlainText(str(self.default_value))
+            if self.tooltip is not None:
+                self.text_field.setToolTip(str(self.tooltip))
             self.layout().addWidget(self.text_field)
-            self.addLineEditToList(self.text_field)
+            self.addToList(self.text_field)
 
             if self.validator is not None and isinstance(self.validator, QtGui.QValidator):
                 self.text_field.setValidator(self.validator)
 
-    def addLineEditToList(self, lineEdit):
-        self.lineEditList.add(lineEdit)
+    @classmethod
+    def addToList(cls, textField):
+        cls.list.add(textField)
     
-    def GetAllLineEdit(self):
-        return self.lineEditList
+    @classmethod
+    def GetAllTextData(cls):
+        txtList = set()
+        for textObj in cls.list:
+            if isinstance(textObj, QtWidgets.QLineEdit):
+                txtList.add((textObj.objectName(), textObj.text()))
+            elif isinstance(textObj, QtWidgets.QTextEdit):
+                txtList.add((textObj.objectName(), textObj.toPlainText()))
+        return txtList
 
 
 class AddItemDialogBase(QtWidgets.QDialog):
@@ -72,7 +83,7 @@ class AddItemDialogBase(QtWidgets.QDialog):
         self.editFieldBaseList = set()
         self.parent = parent
         self.type = None
-        self.what = None
+        self.what = {}
 
         self.frameLayout = QtWidgets.QVBoxLayout()
         self.frameLayout.setAlignment(QtCore.Qt.AlignCenter)
@@ -92,7 +103,7 @@ class AddItemDialogBase(QtWidgets.QDialog):
         self.buttonWidget.setLayout(self.buttonLayout)
         self.layout().addWidget(self.buttonWidget)
     
-    def addWidget(self, widget_to_add, base_widget_name, index=None):
+    def addWidget(self, widget_to_add, base_widget_name, index=None, add_to_list=True):
         self.base_widget = self.findChild(QtWidgets.QGroupBox, base_widget_name)
         if self.base_widget:
             if index is not None:
@@ -110,54 +121,62 @@ class AddItemDialogBase(QtWidgets.QDialog):
             self.base_widget.setLayout(self.base_layout)
             self.frameLayout.insertWidget(0, self.base_widget)
         
-        self.editFieldBaseList.add(widget_to_add)
+        if add_to_list:
+            self.editFieldBaseList.add(widget_to_add)
         return widget_to_add, self.base_widget
 
     def addBaseWidgets(self):
         self.intValidator = QtGui.QIntValidator(1, 99, self)
 
-        self.blinkEFB = [self.CreateNewEFBDict('How Many Times To Blink', self.BLINK_NUM, self.INT_VAL, 5, 'How many times it should blink. Default to 5')]
+        self.blinkEFB = [self.CreateNewEFBDict('How Many Times To Blink', self.BLINK_NUM, EditFieldBase.LINEEDIT, self.INT_VAL, 5, 'How many times it should blink. Default to 5')]
         self.remindCounter = EditFieldBase(self, self.blinkEFB)
         self.addWidget(self.remindCounter, 'Options')
         
-        self.notesEFB = [self.CreateNewEFBDict('Notes', self.NOTES, description='The notes associated with this reminder.', height=200)]
+        self.notesEFB = [self.CreateNewEFBDict('Notes', self.NOTES, EditFieldBase.TEXTEDIT, tooltip='The notes associated with this reminder.')]
         self.notesField = EditFieldBase(self, self.notesEFB)
         self.addWidget(self.notesField, 'Options')
 
         return (self.remindCounter, self.notesField)
 
-    def CreateNewEFBDict(self, label_name=None, object_name=None, validator=None, default_value=None, description=None, width=None, height=None):
-        if None in [label_name, object_name]:
+    def CreateNewEFBDict(self, label_name=None, object_name=None, text_type=None, validator=None, default_value=None, tooltip=None):
+        if None in [label_name, object_name, text_type]:
             return
         return {
             'label_name': label_name,
             'object_name': object_name,
+            'type': text_type,
             'default_value': default_value,
             'validator': validator,
-            'description': description,
-            'width': width,
-            'height': height
+            'tooltip': tooltip
         }
     
     def GetAllEditFieldBase(self):
         return self.editFieldBaseList
     
-    def addAction(self):
-        self.what = {}
-
+    def GetTextDict(self):
         for efb in self.GetAllEditFieldBase():
-            for lineEdit in efb.GetAllLineEdit():
-                if lineEdit.text():
-                    self.what.update({int(lineEdit.objectName()): lineEdit.text()})
-        self.dialogAddAction(self.what)
-        return self.accept()
+            for lineEditName, lineEditText in efb.GetAllTextData():
+                # print lineEditName, lineEditText
+                if lineEditText:
+                    self.what.update({int(lineEditName): lineEditText})
+        return self.what
+    
+    def GetTimeCardData(self, what):
+        self.now = datetime.datetime.now()
+        self.hours = int(what.get(self.HOURS, 0))
+        self.minutes = int(what.get(self.MINS, 0))
+        self.seconds = int(what.get(self.SECONDS, 0))
+        self.notes = what.get(self.NOTES, None)
+        self.blink_num = int(what.get(self.BLINK_NUM, 5))
 
-    def dialogAddAction(self, what):
+        return self.now, self.hours, self.minutes, self.seconds, self.notes, self.blink_num
+    
+    def addAction(self):
         NotImplementedError()
     
     def addTimeCard(self, parent, now, remind_time, notes, card_type, blink_num, hours, minutes, seconds):
         self.timecard = TimecardWidget(parent, now=now, remind_time=remind_time, notes=notes, submit_type=card_type, reminder_blinks=blink_num, hours=hours, minutes=minutes, seconds=seconds)
-        self.parent.TimecardSpaceLayout.insertWidget(0, self.timecard)
+        parent.TimecardSpaceLayout.insertWidget(0, self.timecard)
         self.timecard.startCountdownThread()
         self.close()
     
@@ -173,11 +192,11 @@ class RemindInDialog(AddItemDialogBase):
         
         self.countdownEFB = []
         self.countdownEFB.append(
-            self.CreateNewEFBDict('Hours', self.HOURS, self.INT_VAL))
+            self.CreateNewEFBDict('Hours', self.HOURS, EditFieldBase.LINEEDIT, self.INT_VAL))
         self.countdownEFB.append(
-            self.CreateNewEFBDict('Minutes', self.MINS, self.INT_VAL))
+            self.CreateNewEFBDict('Minutes', self.MINS, EditFieldBase.LINEEDIT, self.INT_VAL))
         self.countdownEFB.append(
-            self.CreateNewEFBDict('Seconds', self.SECONDS, self.INT_VAL))
+            self.CreateNewEFBDict('Seconds', self.SECONDS, EditFieldBase.LINEEDIT, self.INT_VAL))
         self.remindInWidget = EditFieldBase(self, self.countdownEFB)
         
         # Add base option widgets
@@ -186,15 +205,10 @@ class RemindInDialog(AddItemDialogBase):
         # Add additional widget
         self.addWidget(self.remindInWidget, 'Remind Me In')
 
-    def dialogAddAction(self, what):
-        # print what
+    def addAction(self):
+        self.what = self.GetTextDict()
+        self.now, self.hours, self.minutes, self.seconds, self.notes, self.blink_num = self.GetTimeCardData(self.what)
         self.hasError = False
-        self.now = datetime.datetime.now()
-        self.hours = int(what.get(self.HOURS, 0))
-        self.minutes = int(what.get(self.MINS, 0))
-        self.seconds = int(what.get(self.SECONDS, 0))
-        self.notes = what.get(self.NOTES, None)
-        self.blink_num = int(what.get(self.BLINK_NUM, 5))
         
         try:
             self.remind_time = self.now + datetime.timedelta(hours=self.hours, minutes=self.minutes, seconds=self.seconds)
@@ -215,29 +229,29 @@ class RemindAtDialog(AddItemDialogBase):
         AddItemDialogBase.__init__(self, parent)
 
         self.type = self.REMIND_AT
-        
-        self.remindAtEFB = []
-        self.remindAtEFB.append(
-            self.CreateNewEFBDict('Hours', self.HOURS, self.INT_VAL))
-        self.remindAtEFB.append(
-            self.CreateNewEFBDict('Minutes', self.MINS, self.INT_VAL))
-        self.remindAtWidget = EditFieldBase(self, self.remindAtEFB)
+
+        self.timeWidget = QtCore.QTime().currentTime()
+        self.currentTime = QtCore.QTime(self.timeWidget.hour(), self.timeWidget.minute() + 1)
+        self.remindAtWidget = QtWidgets.QTimeEdit()
+        self.remindAtWidget.setMinimumTime(self.currentTime)
+        self.remindAtWidget.setMinimumHeight(22)
         
         # Add base option widgets
         self.baseWidgetList = self.addBaseWidgets()
 
         # Add additional widget
-        self.addWidget(self.remindAtWidget, 'Remind Me At')
+        self.addWidget(self.remindAtWidget, 'Remind Me At', add_to_list=False)
 
-    def dialogAddAction(self, what):
-        # print what
+    def addAction(self):
+        self.what = self.GetTextDict()
+        self.what.update(
+            {
+                self.HOURS: self.remindAtWidget.time().hour(),
+                self.MINS: self.remindAtWidget.time().minute(),
+            }
+        )
+        self.now, self.hours, self.minutes, self.seconds, self.notes, self.blink_num = self.GetTimeCardData(self.what)
         self.hasError = False
-        self.now = datetime.datetime.now()
-        self.hours = int(what.get(self.HOURS, 0))
-        self.minutes = int(what.get(self.MINS, 0))
-        self.seconds = int(what.get(self.SECONDS, 0))
-        self.notes = what.get(self.NOTES, None)
-        self.blink_num = int(what.get(self.BLINK_NUM, 5))
         
         try:
             self.remind_time = datetime.datetime(year=self.now.year, month=self.now.month, day=self.now.day, hour=self.hours, minute=self.minutes)
@@ -265,7 +279,6 @@ class TimecardWidget(QtWidgets.QGroupBox):
         self.setObjectName('time_base')
         self.styleSheet = self.getStylesheet()
         self.setStyleSheet(self.styleSheet)
-        # print kwargs
         self. parent = parent
         self.now = kwargs.get('now')
         self.remind_time = kwargs.get('remind_time', None)
@@ -286,27 +299,30 @@ class TimecardWidget(QtWidgets.QGroupBox):
             if self.hours:
                 self.now_text += ' %s hour(s)' % self.hours
             if self.minutes:
-                self.now_text += ' %s minute(s)' % self.minutes
+                self.now_text += ' %s min(s)' % self.minutes
             if self.seconds:
-                self.now_text += ' %s second(s)' % self.seconds
+                self.now_text += ' %s sec(s)' % self.seconds
         elif self.submit_type == AddItemDialogBase.REMIND_AT:
             self.now_text += ' to be reminded at:'
 
-        self.setTitle(self.now_text)
+        # self.setTitle(self.now_text)
         self.setMinimumHeight(100)
 
         self.buttonLayout = QtWidgets.QHBoxLayout()
         self.buttonWidget = QtWidgets.QWidget()
         self.buttonLayout.setAlignment(QtCore.Qt.AlignRight)
 
-        # self.deleteButton = QtWidgets.QLabel('X')
-        # self.deleteButton.setStyleSheet("QLabel {color: black}")
-        # self.deleteButton.mousePressEvent = self.deleteAction
-        self.deleteButton = QtWidgets.QPushButton('X')
-        self.deleteButton.setFixedSize(25, 25)
-        self.deleteButton.clicked.connect(self.deleteAction)
+        self.submitLabel = QtWidgets.QLabel(self.now_text)
+        self.buttonLayout.addWidget(self.submitLabel)
+        self.horizontalSpacer = QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.buttonLayout.addItem(self.horizontalSpacer)
+        self.deleteButton = QtWidgets.QLabel('X')
+        self.deleteButton.setStyleSheet("QLabel {color: black}")
+        self.deleteButton.mousePressEvent = self.deleteAction
+        # self.deleteButton = QtWidgets.QPushButton('X')
+        # self.deleteButton.setFixedSize(25, 25)
+        # self.deleteButton.clicked.connect(self.deleteAction)
         self.buttonLayout.addWidget(self.deleteButton)
-
         self.buttonWidget.setLayout(self.buttonLayout)
         self.layout().addWidget(self.buttonWidget)
 
@@ -327,9 +343,15 @@ class TimecardWidget(QtWidgets.QGroupBox):
         if self.notes is None:
             self.notes = 'No notes submitted'
         self.notesField = QtWidgets.QLabel(self.notes)
+        self.notesField.setWordWrap(True)
         self.notesLayout.addWidget(self.notesField)
         self.notesWidget.setTitle('Notes')
         self.layout().addWidget(self.notesWidget)
+        self.width = self.sizeHint().width()
+        self.height = self.sizeHint().height()
+        self.setMinimumWidth(self.width)
+        self.setMinimumHeight(self.height)
+
 
     def startCountdownThread(self):
         timeValue = int(self.countdownField.text())
@@ -383,7 +405,7 @@ class TimecardWidget(QtWidgets.QGroupBox):
         ss += '#time_base::title {subcontrol-position: top left; padding:2 13px;}'
         return ss
     
-    def deleteAction(self):
+    def deleteAction(self, event):
         self.stopCountdownThread(True)
     
     @classmethod
@@ -401,11 +423,13 @@ class CountdownMainPanel(QtWidgets.QWidget):
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
         self.setLayout(QtWidgets.QVBoxLayout())
+        self.setContentsMargins(0, 0, 0, 0)
 
         self.MenuSpaceWidget = QtWidgets.QWidget()
         self.MenuSpaceLayout = QtWidgets.QHBoxLayout()
+        self.MenuSpaceLayout.setContentsMargins(0, 0, 0, 0)
         self.MenuSpaceWidget.setLayout(self.MenuSpaceLayout)
-        self.MenuSpaceLayout.setAlignment(QtCore.Qt.AlignTop)
+        # self.MenuSpaceLayout.setAlignment(QtCore.Qt.AlignTop)
         self.layout().addWidget(self.MenuSpaceWidget)
 
         self.RemindInButton = QtWidgets.QPushButton('Remind Me In')
@@ -414,11 +438,18 @@ class CountdownMainPanel(QtWidgets.QWidget):
         self.RemindAtButton = QtWidgets.QPushButton('Remind Me At')
         self.MenuSpaceLayout.addWidget(self.RemindAtButton)
 
-        self.TimecardSpaceWidget = QtWidgets.QWidget()
         self.TimecardSpaceLayout = QtWidgets.QVBoxLayout()
+        self.TimecardSpaceLayout.setContentsMargins(0, 0, 10, 0)
+        self.TimecardSpaceScroll = QtWidgets.QScrollArea()
+        self.TimecardSpaceScroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.TimecardSpaceScroll.setLayout(self.TimecardSpaceLayout)
+        self.TimecardSpaceScroll.setWidgetResizable(True)
+        self.TimecardSpaceWidget = QtWidgets.QWidget()
+        # self.TimecardSpaceLayout2 = QtWidgets.QVBoxLayout()
         self.TimecardSpaceLayout.setAlignment(QtCore.Qt.AlignTop)
         self.TimecardSpaceWidget.setLayout(self.TimecardSpaceLayout)
-        self.layout().addWidget(self.TimecardSpaceWidget)
+        self.TimecardSpaceScroll.setWidget(self.TimecardSpaceWidget)
+        self.layout().addWidget(self.TimecardSpaceScroll)
         
         self.layout().setAlignment(QtCore.Qt.AlignTop)
 

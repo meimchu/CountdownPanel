@@ -16,7 +16,7 @@ class EditFieldBase(QtWidgets.QWidget):
     def __init__(self, parent, efbDictList):
         QtWidgets.QWidget.__init__(self, parent)
         self.type = None
-        
+
         self.parent = parent
         self.efbDictList = efbDictList
 
@@ -58,7 +58,7 @@ class EditFieldBase(QtWidgets.QWidget):
     @classmethod
     def addToList(cls, textField):
         cls.list.add(textField)
-    
+
     @classmethod
     def GetAllTextData(cls):
         txtList = set()
@@ -91,18 +91,18 @@ class AddItemDialogBase(QtWidgets.QDialog):
 
         self.buttonWidget = QtWidgets.QWidget()
         self.buttonLayout = QtWidgets.QHBoxLayout()
-        
+
         self.addButton = QtWidgets.QPushButton('Add')
         self.addButton.clicked.connect(self.addAction)
         self.buttonLayout.addWidget(self.addButton)
-        
+
         self.cancelButton = QtWidgets.QPushButton('Cancel')
         self.cancelButton.clicked.connect(self.cancelAction)
         self.buttonLayout.addWidget(self.cancelButton)
-        
+
         self.buttonWidget.setLayout(self.buttonLayout)
         self.layout().addWidget(self.buttonWidget)
-    
+
     def addWidget(self, widget_to_add, base_widget_name, index=None, add_to_list=True):
         self.base_widget = self.findChild(QtWidgets.QGroupBox, base_widget_name)
         if self.base_widget:
@@ -113,14 +113,14 @@ class AddItemDialogBase(QtWidgets.QDialog):
         else:
             self.base_layout = QtWidgets.QVBoxLayout()
             self.base_widget = QtWidgets.QGroupBox()
-            
+
             self.base_widget.setObjectName(base_widget_name)
             self.base_widget.setTitle(base_widget_name)
-            
+
             self.base_layout.addWidget(widget_to_add)
             self.base_widget.setLayout(self.base_layout)
             self.frameLayout.insertWidget(0, self.base_widget)
-        
+
         if add_to_list:
             self.editFieldBaseList.add(widget_to_add)
         return widget_to_add, self.base_widget
@@ -131,7 +131,7 @@ class AddItemDialogBase(QtWidgets.QDialog):
         self.blinkEFB = [self.CreateNewEFBDict('How Many Times To Blink', self.BLINK_NUM, EditFieldBase.LINEEDIT, self.INT_VAL, 5, 'How many times it should blink. Default to 5')]
         self.remindCounter = EditFieldBase(self, self.blinkEFB)
         self.addWidget(self.remindCounter, 'Options')
-        
+
         self.notesEFB = [self.CreateNewEFBDict('Notes', self.NOTES, EditFieldBase.TEXTEDIT, tooltip='The notes associated with this reminder.')]
         self.notesField = EditFieldBase(self, self.notesEFB)
         self.addWidget(self.notesField, 'Options')
@@ -149,10 +149,10 @@ class AddItemDialogBase(QtWidgets.QDialog):
             'validator': validator,
             'tooltip': tooltip
         }
-    
+
     def GetAllEditFieldBase(self):
         return self.editFieldBaseList
-    
+
     def GetTextDict(self):
         for efb in self.GetAllEditFieldBase():
             for lineEditName, lineEditText in efb.GetAllTextData():
@@ -160,7 +160,7 @@ class AddItemDialogBase(QtWidgets.QDialog):
                 if lineEditText:
                     self.what.update({int(lineEditName): lineEditText})
         return self.what
-    
+
     def GetTimeCardData(self, what):
         self.now = datetime.datetime.now()
         self.hours = int(what.get(self.HOURS, 0))
@@ -170,16 +170,16 @@ class AddItemDialogBase(QtWidgets.QDialog):
         self.blink_num = int(what.get(self.BLINK_NUM, 5))
 
         return self.now, self.hours, self.minutes, self.seconds, self.notes, self.blink_num
-    
+
     def addAction(self):
         NotImplementedError()
-    
+
     def addTimeCard(self, parent, now, remind_time, notes, card_type, blink_num, hours, minutes, seconds):
         self.timecard = TimecardWidget(parent, now=now, remind_time=remind_time, notes=notes, submit_type=card_type, reminder_blinks=blink_num, hours=hours, minutes=minutes, seconds=seconds)
         parent.TimecardSpaceLayout.insertWidget(0, self.timecard)
         self.timecard.startCountdownThread()
         self.close()
-    
+
     def cancelAction(self):
         return self.reject()
 
@@ -189,7 +189,7 @@ class RemindInDialog(AddItemDialogBase):
         AddItemDialogBase.__init__(self, parent)
 
         self.type = self.REMIND_IN
-        
+
         self.countdownEFB = []
         self.countdownEFB.append(
             self.CreateNewEFBDict('Hours', self.HOURS, EditFieldBase.LINEEDIT, self.INT_VAL))
@@ -198,7 +198,7 @@ class RemindInDialog(AddItemDialogBase):
         self.countdownEFB.append(
             self.CreateNewEFBDict('Seconds', self.SECONDS, EditFieldBase.LINEEDIT, self.INT_VAL))
         self.remindInWidget = EditFieldBase(self, self.countdownEFB)
-        
+
         # Add base option widgets
         self.baseWidgetList = self.addBaseWidgets()
 
@@ -209,7 +209,7 @@ class RemindInDialog(AddItemDialogBase):
         self.what = self.GetTextDict()
         self.now, self.hours, self.minutes, self.seconds, self.notes, self.blink_num = self.GetTimeCardData(self.what)
         self.hasError = False
-        
+
         try:
             self.remind_time = self.now + datetime.timedelta(hours=self.hours, minutes=self.minutes, seconds=self.seconds)
             if self.remind_time <= self.now:
@@ -235,7 +235,7 @@ class RemindAtDialog(AddItemDialogBase):
         self.remindAtWidget = QtWidgets.QTimeEdit()
         self.remindAtWidget.setMinimumTime(self.currentTime)
         self.remindAtWidget.setMinimumHeight(22)
-        
+
         # Add base option widgets
         self.baseWidgetList = self.addBaseWidgets()
 
@@ -252,7 +252,7 @@ class RemindAtDialog(AddItemDialogBase):
         )
         self.now, self.hours, self.minutes, self.seconds, self.notes, self.blink_num = self.GetTimeCardData(self.what)
         self.hasError = False
-        
+
         try:
             self.remind_time = datetime.datetime(year=self.now.year, month=self.now.month, day=self.now.day, hour=self.hours, minute=self.minutes)
             if self.remind_time <= self.now:
@@ -262,7 +262,7 @@ class RemindAtDialog(AddItemDialogBase):
         except Exception as e:
             print str(e)
             self.hasError = True
-        
+
         if not self.hasError:
             self.addTimeCard(self.parent, self.now, self.remind_time, self.notes, self.type, self.blink_num, self.hours, self.minutes, self.seconds)
 
@@ -273,7 +273,7 @@ class TimecardWidget(QtWidgets.QGroupBox):
 
     def __init__(self, parent=None, **kwargs):
         QtWidgets.QGroupBox.__init__(self, parent)
-        
+
         self.frameLayout = QtWidgets.QVBoxLayout()
         self.setLayout(self.frameLayout)
         self.setObjectName('time_base')
@@ -288,7 +288,7 @@ class TimecardWidget(QtWidgets.QGroupBox):
         self.hours = kwargs.get('hours', None)
         self.minutes = kwargs.get('minutes', None)
         self.seconds = kwargs.get('seconds', None)
-        
+
         self.now_text = str('Submitted on: %s' % self.now.strftime("%b %d %Y %H:%M:%S"))
         self.remind_time_text = str(self.remind_time.strftime("%b %d %Y %H:%M:%S"))
         self.countdown = int((self.remind_time - self.now).total_seconds())
@@ -367,7 +367,7 @@ class TimecardWidget(QtWidgets.QGroupBox):
         if deleteCard:
             self.setParent(None)
         else:
-            self.old_colour = CountdownMainPanel.OLD_COLOUR
+            self.old_colour = mcCountdownMainPanel.OLD_COLOUR
             self.old_hex = self.old_colour[2:-2]
             self.old_rgb = tuple(int(self.old_hex[i:i+2], 16) for i in (0, 2, 4))
             r = self.old_rgb[0] + int(0.1 * self.rgb[0])
@@ -404,20 +404,20 @@ class TimecardWidget(QtWidgets.QGroupBox):
         ss = '#time_base {border: 1px solid rgb(%s, %s, %s);} ' % (self.rgb[0], self.rgb[1], self.rgb[2])
         ss += '#time_base::title {subcontrol-position: top left; padding:2 13px;}'
         return ss
-    
+
     def deleteAction(self, event):
         self.stopCountdownThread(True)
-    
+
     @classmethod
     def getDagStatus(cls):
         return cls.dagFlashing
-    
+
     @classmethod
     def setDagStatus(cls, status):
         cls.dagFlashing = status
 
 
-class CountdownMainPanel(QtWidgets.QWidget):
+class mcCountdownMainPanel(QtWidgets.QWidget):
     OLD_COLOUR = nuke.toNode('preferences').knob('DAGBackColor').toScript()
 
     def __init__(self, parent=None):
@@ -450,7 +450,7 @@ class CountdownMainPanel(QtWidgets.QWidget):
         self.TimecardSpaceWidget.setLayout(self.TimecardSpaceLayout)
         self.TimecardSpaceScroll.setWidget(self.TimecardSpaceWidget)
         self.layout().addWidget(self.TimecardSpaceScroll)
-        
+
         self.layout().setAlignment(QtCore.Qt.AlignTop)
 
         self.setupConnections()
@@ -462,7 +462,7 @@ class CountdownMainPanel(QtWidgets.QWidget):
     def addRemindIn(self):
         self.addPanel = RemindInDialog(self)
         self.addPanel.show()
-    
+
     def addRemindAt(self):
         self.addPanel = RemindAtDialog(self)
         self.addPanel.show()
@@ -470,4 +470,4 @@ class CountdownMainPanel(QtWidgets.QWidget):
 
 def Install():
     pane = nuke.getPaneFor('Properties.1')
-    panel = nukescripts.panels.registerWidgetAsPanel('CountdownPanelWidget.CountdownMainPanel', 'Reminder Panel', 'id.countdownPanel', True).addToPane(pane)
+    panel = nukescripts.panels.registerWidgetAsPanel('mcCountdownPanelWidget.mcCountdownMainPanel', 'Reminder Panel', 'id.countdownPanel', True).addToPane(pane)
